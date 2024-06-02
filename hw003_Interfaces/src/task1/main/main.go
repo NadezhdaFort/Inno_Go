@@ -25,8 +25,10 @@ func (i ItalicFormatter) Format(text string) string {
 func (c CodeFormatter) Format(text string) string {
 	return fmt.Sprintf("`%s`", text)
 }
-func (chain *ChainFormatter) AddFormatter(formatter Formatter) {
-	chain.formatters = append(chain.formatters, formatter)
+func (chain *ChainFormatter) AddFormatter(formatters ...Formatter) {
+	for _, formatter := range formatters {
+		chain.formatters = append(chain.formatters, formatter)
+	}
 }
 func (chain ChainFormatter) Format(text string) string {
 	for _, formatter := range chain.formatters {

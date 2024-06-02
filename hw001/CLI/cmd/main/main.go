@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -36,21 +35,13 @@ func createFile(s string) {
 	}
 }
 func readFile(s string) {
-	file, err := os.Open(s)
+	bytes, err := os.ReadFile(s)
 	if err != nil {
-		fmt.Println("Невозможно открыть файл", err)
+		fmt.Println("Невозможно прочитать файл", err)
 		return
 	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Ошибка чтения файла", err)
-		return
-	}
+	fileText := string(bytes[:])
+	fmt.Println(fileText)
 	fmt.Println("Файл", s, "успешно прочитан")
 }
 func removeFile(s string) {

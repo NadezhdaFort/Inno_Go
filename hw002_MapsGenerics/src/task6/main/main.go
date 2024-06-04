@@ -22,23 +22,31 @@ type Object struct {
 	Name string `json:"name"`
 }
 type Result struct {
-	Object_id  int `json:"object_id"`
-	Student_Id int `json:"student_id"`
-	Res        int `json:"result"`
+	ObjectId  int `json:"object_id"`
+	StudentId int `json:"student_id"`
+	Res       int `json:"result"`
 }
 
 func main() {
-	exam := parseJson("src/dz3.json")
+	exam, err := parseJson("src/dz3.json")
+	if err != nil {
+		return
+	}
+	if len(exam.Students) == 0 {
+		fmt.Println("Файл не содержит данных")
+		return
+	}
+
 	objectGradeResult := make(map[string]map[int][]int)
 
 	for _, result := range exam.Results {
-		student := findStudentById(exam.Students, result.Student_Id)
-		object := findObjectById(exam.Objects, result.Object_id)
+		student := findStudentById(exam.Students, result.StudentId)
+		object := findObjectById(exam.Objects, result.ObjectId)
 		if _, ok := objectGradeResult[object.Name]; !ok {
 			objectGradeResult[object.Name] = make(map[int][]int)
 		}
 		if _, ok := objectGradeResult[object.Name][student.Grade]; !ok {
-			objectGradeResult[object.Name][student.Grade] = make([]int, 0, len(exam.Results)/len(exam.Objects)/2)
+			objectGradeResult[object.Name][student.Grade] = make([]int, 0, len(exam.Results)/len(exam.Objects))
 		}
 		objectGradeResult[object.Name][student.Grade] = append(objectGradeResult[object.Name][student.Grade], result.Res)
 	}
@@ -74,20 +82,27 @@ func Reduce[T any](s []T, init T, f func(a, b T) T) T {
 	}
 	return r
 }
-func parseJson(filePath string) Exam {
+func parseJson(filePath string) (Exam, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Ошибка открытия файла", err)
+		return Exam{}, err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("Ошибка закрытия файла")
+		}
+	}(file)
 
 	decoder := json.NewDecoder(file)
 	var exam Exam
 	err2 := decoder.Decode(&exam)
 	if err2 != nil {
 		fmt.Println("Ошибка декодирования файла", err2)
+		return Exam{}, err2
 	}
-	return exam
+	return exam, nil
 }
 
 func findStudentById(students []Student, studentId int) Student {

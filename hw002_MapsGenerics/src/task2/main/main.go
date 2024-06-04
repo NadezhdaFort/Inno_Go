@@ -11,12 +11,16 @@ type Candidate struct {
 }
 
 func countVotes(candidates []string) []Candidate {
-	votesArr := make(map[string]int)
-	for _, name := range candidates {
-		votesArr[name]++
+	if len(candidates) == 0 {
+		fmt.Print("Входной массив отсутствует ")
+		return nil
 	}
-	var result []Candidate
-	for name, votes := range votesArr {
+	votesMap := make(map[string]int)
+	for _, name := range candidates {
+		votesMap[name]++
+	}
+	result := make([]Candidate, 0, len(votesMap))
+	for name, votes := range votesMap {
 		result = append(result, Candidate{Name: name, Votes: votes})
 	}
 	sort.Slice(result, func(i, j int) bool {

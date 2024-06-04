@@ -20,13 +20,21 @@ func (numbers Numbers[T]) Multiply() T {
 	}
 	return multi
 }
-func (numbers Numbers[T]) Equal(arr Numbers[T]) bool {
-	if len(numbers) != len(arr) {
+func (numbers Numbers[T]) Equal(numbers2 Numbers[T]) bool {
+	if len(numbers) != len(numbers2) {
 		return false
 	}
-	for i, val := range numbers {
-		if val != arr[i] {
+	mapArr1 := make(map[T]int)
+	for _, val := range numbers {
+		mapArr1[val]++
+	}
+	for _, val := range numbers2 {
+		if _, ok := mapArr1[val]; !ok {
 			return false
+		}
+		mapArr1[val]--
+		if mapArr1[val] == 0 {
+			delete(mapArr1, val)
 		}
 	}
 	return true

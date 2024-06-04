@@ -22,83 +22,113 @@ type Object struct {
 	Name string `json:"name"`
 }
 type Result struct {
-	Object_id  int `json:"object_id"`
-	Student_Id int `json:"student_id"`
-	Res        int `json:"result"`
+	ObjectId  int `json:"object_id"`
+	StudentId int `json:"student_id"`
+	Res       int `json:"result"`
+}
+type ObjectStatistic struct {
+	AllResult int
+	Objects   []int
 }
 
 func main() {
-	exam := parseJson("src/dz3.json")
+	exam, err := parseJson("src/dz3.json")
+	if err != nil {
+		return
+	}
+	if len(exam.Students) == 0 {
+		fmt.Println("Файл не содержит данных")
+		return
+	}
+
+	mapStudents := getMapStudents(exam.Students)
+	mapObjects := getMapObjects(exam.Objects)
+
 	fmt.Printf("%-44s\n", strings.Repeat("_", 44))
 	fmt.Printf("%-14s|%-7s|%-11s|%-9s\n", " Student name", " Grade", " Object", " Result")
 	fmt.Printf("%-44s\n", strings.Repeat("_", 44))
-	ballsArr := make([]int, len(exam.Students)+1, len(exam.Students)+1)
+
+	mapBalls := make(map[int]ObjectStatistic)
+
 	for _, r := range exam.Results {
-		ballsArr[r.Student_Id] += r.Res
+		statistic := mapBalls[r.StudentId]
+		statistic.AllResult += r.Res
+		statistic.Objects = append(statistic.Objects, r.ObjectId)
+		mapBalls[r.StudentId] = statistic
 	}
-	countObjects := len(exam.Objects)
-	excellentStudents := Filter(ballsArr, func(i int) bool {
-		if i == countObjects*5 {
+
+	excellentStudents := Filter(mapBalls, func(i int) bool {
+		if mapBalls[i].AllResult/len(mapBalls[i].Objects) == 5 {
 			return true
 		}
 		return false
 	})
-	for _, indexIdSt := range excellentStudents {
-
-		student := findStudentById(exam.Students, indexIdSt)
-		//object := findObjectById(exam.Objects, r.Object_id)
+	for studentId, _ := range excellentStudents {
+		student := findStudentById(mapStudents, studentId)
 		studentName := student.Name
 		studentGrade := student.Grade
-		for _, object := range exam.Objects {
+		objectStatistic := excellentStudents[studentId]
+		for _, idObject := range objectStatistic.Objects {
+			object := findObjectById(mapObjects, idObject)
 			objectName := object.Name
 			fmt.Printf(" %-13s|%5d  | %-10s|  %-7d\n", studentName, studentGrade, objectName, 5)
 		}
 	}
 }
 
-func Filter[T any](s []T, f func(T) bool) []int {
-	var r []int
+func Filter[T any](s map[int]T, f func(int) bool) map[int]T {
+	m := make(map[int]T)
 	for i, v := range s {
-		if f(v) {
-			r = append(r, i)
+		if f(i) {
+			m[i] = v
 		}
 	}
-	return r
+	return m
 }
 
-func parseJson(filePath string) Exam {
+func parseJson(filePath string) (Exam, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Ошибка открытия файла", err)
+		return Exam{}, err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("Ошибка закрытия файла")
+		}
+	}(file)
 
 	decoder := json.NewDecoder(file)
 	var exam Exam
 	err2 := decoder.Decode(&exam)
 	if err2 != nil {
 		fmt.Println("Ошибка декодирования файла", err2)
+		return Exam{}, err2
 	}
-	return exam
+	return exam, nil
 }
 
-func findStudentById(students []Student, studentId int) Student {
-	var result Student
+func findStudentById(mapStudents map[int]Student, studentId int) Student {
+	return mapStudents[studentId]
+}
+
+func findObjectById(mapObjects map[int]Object, objectId int) Object {
+	return mapObjects[objectId]
+}
+
+func getMapStudents(students []Student) map[int]Student {
+	mapStudents := make(map[int]Student, len(students))
 	for _, student := range students {
-		if student.Id == studentId {
-			result = student
-		}
+		mapStudents[student.Id] = student
 	}
-	return result
+	return mapStudents
 }
 
-func findObjectById(objects []Object, objectId int) Object {
-	var result Object
+func getMapObjects(objects []Object) map[int]Object {
+	mapObjects := make(map[int]Object, len(objects))
 	for _, object := range objects {
-		if object.Id == objectId {
-			result = object
-		}
-
+		mapObjects[object.Id] = object
 	}
-	return result
+	return mapObjects
 }

@@ -22,19 +22,31 @@ type Object struct {
 	Name string `json:"name"`
 }
 type Result struct {
-	Object_id  int `json:"object_id"`
-	Student_Id int `json:"student_id"`
-	Res        int `json:"result"`
+	ObjectId  int `json:"object_id"`
+	StudentId int `json:"student_id"`
+	Res       int `json:"result"`
 }
 
 func main() {
-	exam := parseJson("src/dz3.json")
+	exam, err := parseJson("src/dz3.json")
+	if err != nil {
+		return
+	}
+	if len(exam.Students) == 0 {
+		fmt.Println("Файл не содержит данных")
+		return
+	}
+
+	mapStudents := getMapStudents(exam.Students)
+	mapObjects := getMapObjects(exam.Objects)
+
 	fmt.Printf("%-44s\n", strings.Repeat("_", 44))
 	fmt.Printf("%-14s|%-7s|%-11s|%-9s\n", " Student name", " Grade", " Object", " Result")
 	fmt.Printf("%-44s\n", strings.Repeat("_", 44))
+
 	for _, r := range exam.Results {
-		student := findStudentById(exam.Students, r.Student_Id)
-		object := findObjectById(exam.Objects, r.Object_id)
+		student := findStudentById(mapStudents, r.StudentId)
+		object := findObjectById(mapObjects, r.ObjectId)
 		studentName := student.Name
 		studentGrade := student.Grade
 		objectName := object.Name
@@ -42,39 +54,49 @@ func main() {
 	}
 }
 
-func parseJson(filePath string) Exam {
+func parseJson(filePath string) (Exam, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Ошибка открытия файла", err)
+		return Exam{}, err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("Ошибка закрытия файла")
+		}
+	}(file)
 
 	decoder := json.NewDecoder(file)
 	var exam Exam
 	err2 := decoder.Decode(&exam)
 	if err2 != nil {
 		fmt.Println("Ошибка декодирования файла", err2)
+		return Exam{}, err2
 	}
-	return exam
+	return exam, nil
 }
 
-func findStudentById(students []Student, studentId int) Student {
-	var result Student
+func findStudentById(mapStudents map[int]Student, studentId int) Student {
+	return mapStudents[studentId]
+}
+
+func findObjectById(mapObjects map[int]Object, objectId int) Object {
+	return mapObjects[objectId]
+}
+
+func getMapStudents(students []Student) map[int]Student {
+	mapStudents := make(map[int]Student, len(students))
 	for _, student := range students {
-		if student.Id == studentId {
-			result = student
-		}
+		mapStudents[student.Id] = student
 	}
-	return result
+	return mapStudents
 }
 
-func findObjectById(objects []Object, objectId int) Object {
-	var result Object
+func getMapObjects(objects []Object) map[int]Object {
+	mapObjects := make(map[int]Object, len(objects))
 	for _, object := range objects {
-		if object.Id == objectId {
-			result = object
-		}
-
+		mapObjects[object.Id] = object
 	}
-	return result
+	return mapObjects
 }

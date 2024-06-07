@@ -5,12 +5,12 @@ import (
 	"sync"
 )
 
-func mergeChannels(ch1, ch2 <-chan int) <-chan int {
+func mergeChannels[T any](ch1 <-chan T, ch2 <-chan T) <-chan T {
 	var wg sync.WaitGroup
-	merge := make(chan int)
+	merge := make(chan T)
 
 	// Функция для чтения из канала и отправки в объединенный канал
-	output := func(ch <-chan int) {
+	output := func(ch <-chan T) {
 		defer wg.Done()
 		for value := range ch {
 			merge <- value

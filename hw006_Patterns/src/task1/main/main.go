@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 // WorkerPoolSize определяет количество воркеров
-const WorkerPoolSize = 5
+const WorkerPoolSize = 3
 
 // TimeoutDuration определяет таймаут для каждого воркера
 const TimeoutDuration = 2 * time.Second
@@ -17,15 +19,14 @@ const TimeoutDuration = 2 * time.Second
 // URLs перечень файлов для загрузки
 var URLs = []string{
 	"https://img.freepik.com/free-photo/high-angle-delicious-pancakes-arrangement_23-2150265090.jpg?t=st=1718634824~exp=17",
-	"https://img.freepik.com/free-psd/3d-rendering-of-ui-icon_23-2149182289.jpg?w=1060&t=st=1718636284~exp=1718636884~hmac=fd18c9f95a809901e907b258f8867ec766cab6341788f191aeab3e11e0ee81bf",
-	"https://img.freepik.com/free-photo/3d-cartoon-view-lawyer-briefcase_23-2151419584.jpg?t=st=1718636358~exp=1718639958~hmac=071dbb3dcc61a91eb78f2a6ed1f2a10821eb6b19e2f9c9b091ae7e1d0b3818dc&w=826",
+	"https://ru.wikipedia.org/wiki/%D0%A4%D0%B0%D0%B9%D0%BB:Text-txt.svg",
+	"https://upload.wikimedia.org/wikipedia/commons/5/54/Panda_Cub_%284274178112%29.jpg",
 	"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRMYE4HcgwCeTPZhLe_J86TinY1IGTqsjr4LMSZE9Pwz82KNmSJ4Q1JCYEeyypVS9mj-8&usqp=CAU",
 	"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQEJQknYlIFpDl2fLdbIbmwn9fJ3E9g7qslUg&s",
-	"https://stickershop.line-scdn.net/stickershop/v1/product/8140588/LINEStorePC/main.png?v=1",
+	"https://www.cleverfiles.com/howto/wp-content/uploads/2018/03/minion.jpg",
 	"https://desano.ru/uploads/catalog/309/NS-10051-1.jpg",
 }
 
-// downloadFile функция для загрузки файла по URL
 func downloadFile(url string, wg *sync.WaitGroup, results chan<- string) {
 	defer wg.Done()
 
@@ -40,12 +41,26 @@ func downloadFile(url string, wg *sync.WaitGroup, results chan<- string) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	out, err := os.Create("downloaded_" + extractFileName(url))
 	if err != nil {
-		results <- fmt.Sprintf("Failed to ride file %s: %v", url, err)
+		results <- fmt.Sprintf("Failed to create file for %s: %v", url, err)
 		return
 	}
-	results <- fmt.Sprintf("Successfully downloaded %d bytes", len(body))
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		results <- fmt.Sprintf("Failed to write file for %s: %v", url, err)
+		return
+	}
+
+	results <- fmt.Sprintf("Successfully downloaded %s", url)
+}
+
+// extractFileName функция для извлечения имени файла из URL
+func extractFileName(url string) string {
+	segments := strings.Split(url, "/")
+	return segments[len(segments)-1]
 }
 
 // worker функция, выполняющая загрузку файлов

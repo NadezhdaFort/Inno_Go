@@ -27,7 +27,7 @@ var URLs = []string{
 	"https://desano.ru/uploads/catalog/309/NS-10051-1.jpg",
 }
 
-func downloadFile(url string, wg *sync.WaitGroup, results chan<- string) {
+func downloadFile(url string, wg *sync.WaitGroup, results chan<- string) error {
 	defer wg.Done()
 
 	client := http.Client{
@@ -37,24 +37,37 @@ func downloadFile(url string, wg *sync.WaitGroup, results chan<- string) {
 	resp, err := client.Get(url)
 	if err != nil {
 		results <- fmt.Sprintf("Failed to download %s: %v", url, err)
-		return
+		return err
 	}
-	defer resp.Body.Close()
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println("Error closing resp.Body")
+		}
+	}(resp.Body)
 
 	out, err := os.Create("downloaded_" + extractFileName(url))
 	if err != nil {
 		results <- fmt.Sprintf("Failed to create file for %s: %v", url, err)
-		return
+		return err
 	}
-	defer out.Close()
+
+	defer func(out *os.File) {
+		err := out.Close()
+		if err != nil {
+			fmt.Println("Error closing file")
+		}
+	}(out)
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		results <- fmt.Sprintf("Failed to write file for %s: %v", url, err)
-		return
+		return err
 	}
 
 	results <- fmt.Sprintf("Successfully downloaded %s", url)
+	return nil
 }
 
 // extractFileName функция для извлечения имени файла из URL
@@ -67,7 +80,10 @@ func extractFileName(url string) string {
 func worker(id int, jobs <-chan string, results chan<- string, wg *sync.WaitGroup) {
 	for url := range jobs {
 		fmt.Printf("Worker %d started downloading %s\n", id, url)
-		downloadFile(url, wg, results)
+		if err := downloadFile(url, wg, results); err != nil {
+			fmt.Println("File download error", err)
+			continue
+		}
 		fmt.Printf("Worker %d finished downloading %s\n", id, url)
 	}
 }
@@ -85,8 +101,8 @@ func main() {
 	}
 
 	// Добавление задач в канал jobs
+	wg.Add(len(URLs))
 	for _, url := range URLs {
-		wg.Add(1)
 		jobs <- url
 	}
 	close(jobs)

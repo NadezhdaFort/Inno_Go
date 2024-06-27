@@ -6,69 +6,88 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
-// Функция чтения с консоли
-func readConsole(inputChan chan<- string) {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("Введите данные (для выхода из программы нажмите ctrl+c)")
-	for scanner.Scan() {
-		input := scanner.Text()
-		inputChan <- input
-	}
-	if scanner.Err() != nil {
-		fmt.Println("Ошибка ввода данных", scanner.Err())
-		close(inputChan)
-	}
+func readConsole(ctx context.Context) <-chan string {
+	inputChan := make(chan string)
+
+	go func() {
+		defer close(inputChan)
+		scanner := bufio.NewScanner(os.Stdin)
+		fmt.Println("Для завершения работы введите \"Ctrl + C\"")
+
+		for scanner.Scan() {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				text := scanner.Text()
+				inputChan <- text
+			}
+		}
+		if scanner.Err() != nil {
+			fmt.Println("Ошибка ввода данных", scanner.Err())
+			return
+		}
+	}()
+	return inputChan
 }
 
-// функция записи в файл
-func writeFile(ctx context.Context, filePath string, writeChan <-chan string) {
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+func writeFile(ctx context.Context, fileName string, inputChan <-chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		fmt.Println("Невозможно открыть файл", err)
-		ctx.Done()
+		fmt.Println("Ошибка открытия файла", err)
 		return
 	}
+
 	defer func(file *os.File) {
 		if err := file.Close(); err != nil {
 			fmt.Println("Невозможно закрыть файл", err)
 		}
 	}(file)
 
-	for text := range writeChan {
-		if _, err := file.WriteString(text + "\n"); err != nil {
-			fmt.Println("Невозможно записать в файл")
-			ctx.Done()
+	for {
+		select {
+		case text, ok := <-inputChan:
+			if !ok {
+				return
+			}
+			if _, err := file.WriteString(text + "\n"); err != nil {
+				fmt.Println("Ошибка записи в файл", err)
+				return
+			}
+		case <-ctx.Done():
 			return
 		}
 	}
-	ctx.Done()
 }
 
 func main() {
-	filePath := "output.txt"
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	console := make(chan string)
+	fileName1 := "output.txt"
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	go readConsole(console)
-	go writeFile(ctx, filePath, console)
+	go func() {
+		<-signalChan
+		fmt.Println(" Введен сигнал завершения работы")
+		cancel()
+	}()
 
-	select {
-	case <-signalChan:
-		fmt.Println(" Получен сигнал завершения работы")
-	case <-ctx.Done():
-		fmt.Println("Программа завершена")
-	}
+	readChan := readConsole(ctx)
 
-	close(console)
+	wg.Add(1)
+	go writeFile(ctx, fileName1, readChan, &wg)
 
-	// ожидание записи в файл
-	cancel()
+	wg.Wait()
+
+	fmt.Println("Программа завершена")
 	os.Exit(0)
 }

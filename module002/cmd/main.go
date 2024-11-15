@@ -100,7 +100,7 @@ func validation(matrix [][]int, userAnswer []int) error {
 	}
 
 	for _, node := range userAnswer {
-		if node > len(matrix)-1 {
+		if (node > len(matrix)-1) || (node < 0) {
 			return errors.New("Пользователь выбрал ответы, которые не были предложены")
 		}
 	}
@@ -119,8 +119,13 @@ func validation(matrix [][]int, userAnswer []int) error {
 	}
 
 	for i := 0; i < lenM; i++ {
-		if matrix[i][i] != 0 {
-			return errors.New("Граф имеет петли")
+		for j := 0; j < lenM; j++ {
+			if matrix[i][j] < 0 {
+				return errors.New("Вес ребра в графе отрицательный")
+			}
+			if i == j && matrix[i][j] != 0 {
+				return errors.New("Граф имеет петли")
+			}
 		}
 	}
 	return nil

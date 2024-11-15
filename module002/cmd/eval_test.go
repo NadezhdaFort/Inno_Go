@@ -107,6 +107,34 @@ func TestEvalSequence(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "Incorrect graph: negative values 0%",
+			args: args{
+				mtx: [][]int{
+					{0, 2, 0, 0},
+					{2, 0, -3, 0},
+					{0, 3, 0, 4},
+					{0, 0, 4, 0},
+				},
+				ua: []int{0, 1, 2, 3},
+			},
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name: "Incorrect user answer: negative values 0%",
+			args: args{
+				mtx: [][]int{
+					{0, 2, 0, 0},
+					{2, 0, 3, 0},
+					{0, 3, 0, 4},
+					{0, 0, 4, 0},
+				},
+				ua: []int{0, 1, -2, 3},
+			},
+			want:    0,
+			wantErr: true,
+		},
+		{
 			name: "Invalid user answer 0%",
 			args: args{
 				mtx: [][]int{
